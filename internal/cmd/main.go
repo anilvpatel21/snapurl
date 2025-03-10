@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"flag"
 	"log"
 	"os"
 	"os/signal"
@@ -22,11 +23,24 @@ func main() {
 	// Set up logging
 	log.SetFlags(log.LstdFlags | log.Lmicroseconds)
 
-	// Read input file path from CLI
-	if len(os.Args) < 2 {
-		log.Fatal("Usage: go run main.go <file_path>")
+	// Define flags
+	filePath := flag.String("filePath", "", "Path to the input file")
+	maxDownloadConcurrency := flag.Int("maxDownloadConcurrency", 50, "Maximum number of concurrent downloads")
+
+	// Parse the flags
+	flag.Parse()
+
+	// Validate flags
+	if *filePath == "" {
+		log.Fatal("Argument Missing: --filePath=<file_path> should be added with command")
 	}
-	filePath := os.Args[1]
+
+	if *maxDownloadConcurrency < 0 {
+		log.Fatal("Invalid Argument: --maxDownloadConcurrency should be greater than zero. Default 50.")
+	}
+
+	log.Println("File Path", *filePath)
+	log.Println("Max Download Concurrency", *maxDownloadConcurrency)
 
 	/* ------ stage 1 start------- */
 	// Create the URL channel
@@ -34,7 +48,7 @@ func main() {
 
 	// Initialize reader dependencies
 	csvReader := &csv.CSVReader{
-		FilePath: filePath,
+		FilePath: *filePath,
 	}
 
 	// Start goroutine to reading file
@@ -70,7 +84,7 @@ func main() {
 		defer func() {
 			downloadWait.Done()
 		}()
-		downloadURLs(downloader, urlChan, contentChan, &downloadWait)
+		downloadURLs(*maxDownloadConcurrency, downloader, urlChan, contentChan, &downloadWait)
 	}()
 
 	go func() {
@@ -139,8 +153,8 @@ func startReading(r ports.Reader, readChan chan<- string) {
 	}
 }
 
-func downloadURLs(downloader ports.Downloader, urlChan chan string, contentChan chan string, wg *sync.WaitGroup) {
-	semaphore := make(chan struct{}, 50)
+func downloadURLs(maxDownloadConcurrency int, downloader ports.Downloader, urlChan chan string, contentChan chan string, wg *sync.WaitGroup) {
+	semaphore := make(chan struct{}, maxDownloadConcurrency)
 	var mu sync.Mutex
 	for url := range urlChan {
 		totalURLs++
