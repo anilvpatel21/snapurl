@@ -1,7 +1,6 @@
 package main
 
 import (
-	"fmt"
 	"log"
 	"os"
 	"sync"
@@ -9,6 +8,7 @@ import (
 	"github.com/anilvpatel21/snapurl/internal/ports"
 	"github.com/anilvpatel21/snapurl/pkg/csv"
 	"github.com/anilvpatel21/snapurl/pkg/downloader"
+	"github.com/anilvpatel21/snapurl/pkg/persister"
 )
 
 func main() {
@@ -71,11 +71,26 @@ func main() {
 		close(contentChan)
 	}()
 
-	for content := range contentChan {
-		fmt.Println(content)
+	/* ------ stage 2 done ------- */
+	/* ------ stage 3 start------- */
+
+	// Initialize persister dependencies
+	persister := &persister.FilePersister{
+		BaseDir: "../../external/downloads",
 	}
 
-	/* ------ stage 2 done ------- */
+	// Start the goroutine to persist content
+	var persistWG sync.WaitGroup
+	persistWG.Add(1)
+	go func() {
+		defer func() {
+			persistWG.Done()
+		}()
+		persistContent(persister, contentChan)
+	}()
+
+	persistWG.Wait()
+	/* ------ stage 3 done------- */
 }
 
 // Read URLs from CSV file line by line
@@ -104,5 +119,14 @@ func downloadURLs(downloader ports.Downloader, urlChan chan string, contentChan 
 			}
 			contentChan <- content
 		}(url)
+	}
+}
+
+func persistContent(persister ports.Persister, contentChan chan string) {
+	for content := range contentChan {
+		_, err := persister.Persist(content)
+		if err != nil {
+			log.Printf("Error persisting content: %v", err)
+		}
 	}
 }
