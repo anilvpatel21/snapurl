@@ -3,6 +3,18 @@
 **SnapURL** is a Go-based command-line application that downloads content from URLs listed in a CSV file and saves them into `.txt` files. It supports concurrent downloading and allows you to specify various parameters such as the input file path and maximum download concurrency.
 
 ---
+## Prerequisites
+
+Before running this application, you need to install **Go** on your machine.
+
+### Install Go
+
+To install Go, follow the instructions provided by the official Go documentation:
+
+- Visit the Go installation page: [https://go.dev/doc/install](https://go.dev/doc/install)
+- Follow the installation instructions for your operating system.
+
+---
 
 ## Installation
 
@@ -14,7 +26,7 @@
 2. Navigate into the project directory:
    ```bash
    cd snapurl
-   cd cmd
+   cd internal/cmd
    ```
 
 ---
