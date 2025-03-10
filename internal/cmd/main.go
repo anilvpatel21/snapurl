@@ -4,6 +4,7 @@ import (
 	"log"
 	"os"
 	"sync"
+	"time"
 
 	"github.com/anilvpatel21/snapurl/internal/ports"
 	"github.com/anilvpatel21/snapurl/pkg/csv"
@@ -12,6 +13,7 @@ import (
 )
 
 var totalURLs, successFetch, errorFetch float64
+var totalDuration float64
 
 func main() {
 	// Set up logging
@@ -96,6 +98,7 @@ func main() {
 	log.Printf("total URL processed from file: %.0f\n", totalURLs)
 	log.Printf("success percentage: %.2f \n", (successFetch/totalURLs)*100)
 	log.Printf("failure percentage: %.2f\n", (errorFetch/totalURLs)*100)
+	log.Printf("average download duration: %.2f(ms)\n", totalDuration/totalURLs)
 }
 
 // Read URLs from CSV file line by line
@@ -118,6 +121,7 @@ func downloadURLs(downloader ports.Downloader, urlChan chan string, contentChan 
 				<-semaphore
 			}()
 			semaphore <- struct{}{}
+			downloadStartTime := time.Now()
 			content, err := downloader.Download(url)
 			if err != nil {
 				log.Printf("Error downloading %s: %v", url, err)
@@ -126,6 +130,10 @@ func downloadURLs(downloader ports.Downloader, urlChan chan string, contentChan 
 				mu.Unlock()
 				return
 			}
+			mu.Lock()
+			totalDuration += float64(time.Since(downloadStartTime).Milliseconds())
+			mu.Unlock()
+
 			contentChan <- content
 		}(url)
 	}
