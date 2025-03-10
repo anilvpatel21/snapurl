@@ -1,9 +1,12 @@
 package main
 
 import (
+	"context"
 	"log"
 	"os"
+	"os/signal"
 	"sync"
+	"syscall"
 	"time"
 
 	"github.com/anilvpatel21/snapurl/internal/ports"
@@ -93,8 +96,36 @@ func main() {
 		persistContent(persister, contentChan)
 	}()
 
-	persistWG.Wait()
+	var ctx context.Context
+	var cancel context.CancelFunc
+	doneCh := make(chan struct{})
+	go func() {
+		persistWG.Wait()
+		ctx, cancel = context.WithTimeout(context.Background(), 1*time.Microsecond)
+		close(doneCh)
+	}()
 	/* ------ stage 3 done------- */
+
+	// Create a channel to listen for interrupt signals
+	signalChan := make(chan os.Signal, 1)
+	signal.Notify(signalChan, syscall.SIGINT, syscall.SIGTERM)
+
+	select {
+	case <-signalChan:
+		log.Println("Recieved an interrupt signal.")
+		ctx, cancel = context.WithTimeout(context.Background(), 5*time.Second)
+	case <-doneCh:
+		log.Println("All goroutine task is completed.")
+	}
+
+	defer cancel()
+
+	// Timeout or interrupt while waiting for completion
+	select {
+	case <-ctx.Done():
+		log.Println("Graceful shutdown application.")
+	}
+
 	log.Printf("total URL processed from file: %.0f\n", totalURLs)
 	log.Printf("success percentage: %.2f \n", (successFetch/totalURLs)*100)
 	log.Printf("failure percentage: %.2f\n", (errorFetch/totalURLs)*100)
