@@ -94,3 +94,8 @@ https://anilpatel.offline
 ```
 
 ---
+
+## For Unit Test
+```
+go test ../../...
+```
